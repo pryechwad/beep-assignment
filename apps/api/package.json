@@ -1,0 +1,39 @@
+{
+  "name": "@beep/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@beep/shared": "*",
+    "@beep/database": "*",
+    "@beep/queues": "*",
+    "@beep/evaluation": "*",
+    "@beep/ai-engine": "*",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "cors": "^2.8.5",
+    "cookie-parser": "^1.4.7",
+    "express-rate-limit": "^7.5.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "pino-http": "^10.4.0",
+    "zod": "^3.24.1",
+    "@beep/scraper-engine": "*"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/cookie-parser": "^1.4.8",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.0",
+    "tsup": "^8.3.5"
+  }
+}

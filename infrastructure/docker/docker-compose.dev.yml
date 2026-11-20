@@ -1,0 +1,29 @@
+# Local development infrastructure only: Postgres (with pgvector) + Redis.
+# Application processes (api, worker, scheduler, web) run on the host via npm scripts.
+name: beep-dev
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: beep
+      POSTGRES_PASSWORD: beep_dev_password
+      POSTGRES_DB: beep
+    ports: ["5442:5432"]
+    volumes: [beep_pg:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beep -d beep"]
+      interval: 5s
+      retries: 10
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=60"]
+  redis:
+    image: redis:7.4-alpine
+    ports: ["6389:6379"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: [beep_redis:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+volumes:
+  beep_pg: {}
+  beep_redis: {}

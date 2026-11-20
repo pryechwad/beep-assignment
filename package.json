@@ -1,0 +1,42 @@
+{
+  "name": "beep-job-intelligence",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "infra:up": "docker compose -f infrastructure/docker/docker-compose.dev.yml up -d",
+    "infra:down": "docker compose -f infrastructure/docker/docker-compose.dev.yml down",
+    "db:migrate": "npm run migrate:dev -w @beep/database",
+    "db:deploy": "npm run migrate:deploy -w @beep/database",
+    "db:seed": "npm run seed -w @beep/database",
+    "db:generate": "npm run generate -w @beep/database",
+    "dev:api": "npm run dev -w @beep/api",
+    "dev:worker": "npm run dev -w @beep/worker",
+    "dev:scheduler": "npm run dev:scheduler -w @beep/worker",
+    "dev:web": "npm run dev -w @beep/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "test:e2e": "npm run test:e2e -w @beep/web",
+    "build": "npm run build -w @beep/api && npm run build -w @beep/worker && npm run build -w @beep/web",
+    "test:integration": "vitest run -c vitest.integration.config.ts",
+    "test:all": "npm run test && npm run test:integration",
+    "status": "bash scripts/status.sh",
+    "pipeline:run": "tsx --env-file=.env scripts/trigger-run.ts",
+    "reprocess": "tsx --env-file=.env scripts/reprocess.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "dotenv-cli": "^8.0.0",
+    "prisma": "^6.19.3",
+    "tsx": "^4.23.15",
+    "typescript": "~5.7.3",
+    "vitest": "^3.2.7"
+  }
+}

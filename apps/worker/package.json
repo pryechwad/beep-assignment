@@ -1,0 +1,30 @@
+{
+  "name": "@beep/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/worker.ts",
+    "dev:scheduler": "tsx watch --env-file=../../.env src/scheduler.ts",
+    "start": "node dist/worker.js",
+    "start:scheduler": "node dist/scheduler.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@beep/shared": "*",
+    "@beep/database": "*",
+    "@beep/scraper-engine": "*",
+    "@beep/normalization": "*",
+    "@beep/deduplication": "*",
+    "@beep/classification": "*",
+    "@beep/ai-engine": "*",
+    "bullmq": "^5.34.0",
+    "ioredis": "^5.4.2",
+    "axios": "^1.7.9",
+    "@beep/queues": "*"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5"
+  }
+}

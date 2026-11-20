@@ -1,0 +1,77 @@
+# Self-hosted production (single VPS). Secrets come from an env file you create (never commit it):
+#   docker compose -f infrastructure/docker/docker-compose.prod.yml --env-file .env.production up -d --build
+name: beep
+x-backend: &backend
+  build:
+    context: ../..
+    dockerfile: infrastructure/docker/Dockerfile
+  image: beep-backend:latest
+  restart: unless-stopped
+  env_file: ../../.env.production
+  environment:
+    DATABASE_URL: postgresql://beep:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/beep?connection_limit=10&connect_timeout=20&pool_timeout=20
+    REDIS_URL: redis://redis:6379
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    redis:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: beep
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: beep
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beep -d beep"]
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    # BullMQ needs noeviction; AOF keeps queued jobs across restarts.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+
+  # One-shot: apply migrations before any app process starts.
+  migrate:
+    image: beep-backend:latest
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+    env_file: ../../.env.production
+    environment:
+      DATABASE_URL: postgresql://beep:${POSTGRES_PASSWORD}@postgres:5432/beep
+    command: ["node", "node_modules/prisma/build/index.js", "migrate", "deploy", "--schema", "packages/database/prisma/schema.prisma"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *backend
+    ports: ["4100:4100"]
+
+  worker:
+    <<: *backend
+    command: ["node", "--enable-source-maps", "apps/worker/dist/worker.js"]
+    healthcheck: { disable: true }
+    stop_grace_period: 40s
+
+  scheduler:
+    <<: *backend
+    command: ["node", "--enable-source-maps", "apps/worker/dist/scheduler.js"]
+    healthcheck: { disable: true }
+
+volumes:
+  pgdata: {}
+  redisdata: {}

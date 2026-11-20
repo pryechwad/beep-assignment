@@ -1,0 +1,60 @@
+# Render Blueprint: API (web service) + worker + scheduler (background workers) + managed Postgres/Redis.
+# The Vercel frontend proxies /api/* to the API service URL (see apps/web/vercel.json).
+# Secrets marked sync:false are entered in the Render dashboard; never commit them.
+databases:
+  - name: beep-postgres
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+
+services:
+  - type: keyvalue
+    name: beep-redis
+    plan: starter
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+  - type: web
+    name: beep-api
+    runtime: docker
+    dockerfilePath: infrastructure/docker/Dockerfile
+    healthCheckPath: /health
+    preDeployCommand: node node_modules/prisma/build/index.js migrate deploy --schema packages/database/prisma/schema.prisma
+    envVars: &env
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase: { name: beep-postgres, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: beep-redis, property: connectionString }
+      - key: JWT_SECRET
+        generateValue: true
+      - key: WEB_ORIGIN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: AI_PROVIDER_ORDER
+        value: gemini,openai,groq
+      - key: AI_CLASSIFY_PER_MINUTE
+        value: "10"
+      - key: AI_MAX_LLM_CLASSIFICATIONS_PER_DAY
+        value: "600"
+      - key: PIPELINE_TZ
+        value: Asia/Kolkata
+
+  - type: worker
+    name: beep-worker
+    runtime: docker
+    dockerfilePath: infrastructure/docker/Dockerfile
+    dockerCommand: node --enable-source-maps apps/worker/dist/worker.js
+    envVars: *env
+
+  - type: worker
+    name: beep-scheduler
+    runtime: docker
+    dockerfilePath: infrastructure/docker/Dockerfile
+    dockerCommand: node --enable-source-maps apps/worker/dist/scheduler.js
+    envVars: *env
