@@ -1,33 +1,57 @@
-import { BarChart3, Bot, ClipboardCheck, Coins, Database, LayoutDashboard, LogOut, Menu, Search, ScrollText, Workflow } from 'lucide-react';
+import { BarChart3, BookOpen, Bot, Briefcase, Building2, ClipboardCheck, Coins, Database, House, LayoutDashboard, LogOut, Menu, Radar, ScrollText, Search, Workflow } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useSession, useLogout } from '@/hooks/use-session';
 import { cn } from '@/lib/format';
 import { LiveSyncPill } from './live';
 import { Button } from './ui/button';
 import { Dialog } from './ui/overlay';
 
-export function Wordmark({ to = '/' }: { to?: string }) {
+export function Wordmark({ to = '/', subtitle = 'Job Intelligence' }: { to?: string; subtitle?: ReactNode }) {
   return (
-    <Link to={to} className="flex shrink-0 items-center gap-2.5 text-ink" aria-label="Beep Job Intelligence home">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg shadow-card" style={{ background: 'linear-gradient(135deg, #315CF5 0%, #7C5CE6 100%)' }}>
-        <span className="text-sm font-extrabold text-white">B</span>
+    <Link to={to} className="flex shrink-0 items-center gap-3" aria-label="Beep Job Intelligence home">
+      <span className="flex size-10 items-center justify-center rounded-xl bg-[#0b1120] shadow-sm ring-1 ring-white/10">
+        <svg viewBox="0 0 24 24" className="size-5 text-indigo-300" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M13 7h8m0 0v8m0-8-8 8-4-4-6 6" />
+        </svg>
       </span>
-      <span className="flex flex-col leading-none">
-        <span className="text-[0.9375rem] font-extrabold tracking-tight">beep<span style={{ color: '#315CF5' }}>.</span>jobs</span>
-        <span className="mt-0.5 text-[0.625rem] font-medium uppercase tracking-[0.08em] text-muted">Job Intelligence</span>
+      <span className="leading-tight">
+        <span className="block text-[17px] font-semibold tracking-tight text-slate-900">beep<span className="text-indigo-500">.</span>jobs</span>
+        <span className="block text-xs font-medium text-slate-500">{subtitle}</span>
       </span>
     </Link>
   );
 }
 
-const PUBLIC_NAV = [
-  { to: '/', label: 'Home', end: true },
-  { to: '/jobs', label: 'Jobs', end: false },
-  { to: '/companies', label: 'Companies', end: false },
-  { to: '/insights', label: 'Insights', end: false },
-  { to: '/analytics', label: 'Analytics', end: false },
-  { to: '/about', label: 'About', end: false },
+const PUBLIC_SECTIONS: { title: string; items: { to: string; label: string; icon: ReactNode; end?: boolean }[] }[] = [
+  {
+    title: 'Discover',
+    items: [
+      { to: '/', label: 'Home', icon: <House />, end: true },
+      { to: '/jobs', label: 'Jobs', icon: <Briefcase /> },
+      { to: '/companies', label: 'Companies', icon: <Building2 /> },
+    ],
+  },
+  {
+    title: 'Intelligence',
+    items: [
+      { to: '/scout', label: 'AI Scout', icon: <Radar /> },
+      { to: '/insights', label: 'Insights', icon: <LayoutDashboard /> },
+      { to: '/analytics', label: 'Analytics', icon: <BarChart3 /> },
+    ],
+  },
+  { title: 'About', items: [{ to: '/about', label: 'Methodology', icon: <BookOpen /> }] },
+];
+
+const PAGE_TITLES: [RegExp, string][] = [
+  [/^\/$/, 'Home'],
+  [/^\/jobs\/.+/, 'Job details'],
+  [/^\/jobs/, 'Jobs'],
+  [/^\/companies/, 'Companies'],
+  [/^\/scout/, 'AI Scout'],
+  [/^\/insights/, 'Insights'],
+  [/^\/analytics/, 'Analytics'],
+  [/^\/about/, 'Methodology'],
 ];
 
 function NavSearch({ onDone, className }: { onDone?: () => void; className?: string }) {
@@ -44,89 +68,110 @@ function NavSearch({ onDone, className }: { onDone?: () => void; className?: str
         onDone?.();
       }}
     >
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" aria-hidden />
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search jobs, skills, companies"
+        placeholder="Search jobs, skills, companies…"
         aria-label="Search jobs"
-        className="h-9 w-full rounded-full border border-line bg-subtle pl-8 pr-3 text-[0.8125rem] text-ink placeholder:text-faint transition-colors hover:border-line-strong focus:border-accent focus:bg-surface focus:outline-none focus:ring-4 focus:ring-accent/12"
+        className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 transition hover:border-slate-300 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
       />
     </form>
   );
 }
 
+function PublicSidebar({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex h-[4.5rem] items-center px-5">
+        <Wordmark />
+      </div>
+      <nav aria-label="Primary" className="flex-1 space-y-6 overflow-y-auto px-3 py-3">
+        {PUBLIC_SECTIONS.map((section) => (
+          <div key={section.title}>
+            <div className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{section.title}</div>
+            <ul className="space-y-0.5">
+              {section.items.map((item) => (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    end={item.end}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors [&_svg]:size-[18px]',
+                        isActive ? 'bg-slate-900 text-white shadow-sm [&_svg]:text-indigo-300' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 [&_svg]:text-slate-400',
+                      )
+                    }
+                  >
+                    {item.icon}
+                    {item.label}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </nav>
+      <div className="space-y-2 p-3">
+        <div className="relative overflow-hidden rounded-2xl bg-[#0b1120] p-4 text-white ring-1 ring-white/5">
+          <div aria-hidden className="absolute -right-10 -top-10 size-28 rounded-full bg-indigo-500/30 blur-2xl" />
+          <div className="relative">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-200">Data pipeline</p>
+            <p className="mt-1 text-xs text-slate-300">Boards swept daily at 06:30 IST, tagged by AI around the clock.</p>
+            <div className="mt-3"><LiveSyncPill /></div>
+          </div>
+        </div>
+        <Link to="/admin" onClick={onNavigate} className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-slate-100">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-slate-900 text-sm font-semibold text-white">A</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-slate-900">Admin console</span>
+            <span className="block text-xs text-slate-500">Operations & evaluation</span>
+          </span>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export function PublicLayout() {
   const [menu, setMenu] = useState(false);
+  const location = useLocation();
+  const title = PAGE_TITLES.find(([re]) => re.test(location.pathname))?.[1] ?? '';
   return (
-    <div className="flex min-h-screen flex-col">
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded focus:bg-surface focus:px-3 focus:py-2">
+    <div className="min-h-dvh lg:pl-64">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2">
         Skip to content
       </a>
-      <header className="sticky top-0 z-30 border-b border-line bg-surface/95 shadow-[0_1px_0_rgb(23_25_31/0.02)] backdrop-blur supports-[backdrop-filter]:bg-surface/85">
-        <div className="mx-auto flex h-16 max-w-[1240px] items-center gap-4 px-4 sm:px-6 lg:gap-8">
-          <Wordmark />
-          <nav aria-label="Primary" className="hidden h-16 items-stretch gap-1 lg:flex">
-            {PUBLIC_NAV.map((n) => (
-              <NavLink
-                key={n.to}
-                to={n.to}
-                end={n.end}
-                className={({ isActive }) =>
-                  cn(
-                    'relative flex items-center px-3 text-sm font-medium text-ink-2 transition-colors hover:text-ink',
-                    'after:absolute after:inset-x-3 after:bottom-0 after:h-[2px] after:rounded-full after:bg-accent after:opacity-0 after:transition-opacity',
-                    isActive && 'text-accent-ink after:opacity-100',
-                  )
-                }
-              >
-                {n.label}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="ml-auto flex items-center gap-2.5">
-            <NavSearch className="hidden w-60 xl:block" />
-            <LiveSyncPill />
-            <Button asChild size="md" variant="primary" className="hidden rounded-full px-4 sm:inline-flex">
-              <Link to="/admin">Admin</Link>
-            </Button>
-            <Button size="icon" variant="ghost" className="lg:hidden" onClick={() => setMenu(true)} aria-label="Open menu">
-              <Menu className="h-5 w-5" />
-            </Button>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-slate-200/80 bg-white/95 backdrop-blur lg:block">
+        <PublicSidebar />
+      </aside>
+      <Dialog open={menu} onOpenChange={setMenu} title="beep.jobs" variant="drawer" className="max-w-xs [&>div:nth-child(2)]:p-0">
+        <PublicSidebar onNavigate={() => setMenu(false)} />
+      </Dialog>
+      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-3 px-4 sm:px-6 lg:px-8">
+          <Button size="icon" variant="ghost" className="lg:hidden" onClick={() => setMenu(true)} aria-label="Open menu">
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="lg:hidden"><Wordmark /></div>
+          <h2 className="hidden truncate text-base font-semibold text-slate-900 lg:block">{title}</h2>
+          <div className="ml-auto flex items-center gap-3">
+            <NavSearch className="hidden w-72 md:block" />
+            <div className="hidden sm:block"><LiveSyncPill /></div>
           </div>
         </div>
       </header>
-      <Dialog open={menu} onOpenChange={setMenu} title="Menu" variant="drawer" className="max-w-xs">
-        <NavSearch className="mb-4" onDone={() => setMenu(false)} />
-        <nav aria-label="Mobile" className="flex flex-col gap-0.5">
-          {[...PUBLIC_NAV, { to: '/admin', label: 'Admin', end: false }].map((n) => (
-            <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setMenu(false)} className={({ isActive }) => cn('rounded-lg px-3 py-2.5 text-sm font-medium text-ink-2', isActive && 'bg-accent-soft text-accent-ink')}>
-              {n.label}
-            </NavLink>
-          ))}
-        </nav>
-      </Dialog>
-      <main id="main" className="mx-auto w-full max-w-[1240px] flex-1 px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
+      <main id="main" className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-6 sm:px-6 sm:pt-8 lg:px-8">
         <Outlet />
       </main>
-      <footer className="border-t border-line bg-surface">
-        <div className="mx-auto grid max-w-[1240px] gap-6 px-4 py-8 text-sm sm:grid-cols-[1fr_auto_auto] sm:px-6">
-          <div>
-            <Wordmark />
-            <p className="mt-3 max-w-sm text-xs leading-relaxed text-muted">Fresher jobs and internships across India, collected daily from employers’ public job boards and tagged by AI. Always apply on the original posting.</p>
-          </div>
-          <div className="flex flex-col gap-2 text-xs">
-            <span className="font-semibold text-ink">Explore</span>
-            <Link to="/jobs?fresher=true" className="text-muted hover:text-ink">Fresher jobs</Link>
-            <Link to="/jobs?internship=true" className="text-muted hover:text-ink">Internships</Link>
-            <Link to="/companies" className="text-muted hover:text-ink">Companies</Link>
-          </div>
-          <div className="flex flex-col gap-2 text-xs">
-            <span className="font-semibold text-ink">Transparency</span>
-            <Link to="/about" className="text-muted hover:text-ink">How data is collected</Link>
-            <Link to="/insights" className="text-muted hover:text-ink">Live insights</Link>
-            <a href="/api/v1/openapi.json" className="text-muted hover:text-ink">Public API</a>
-          </div>
+      <footer className="border-t border-slate-200/80 bg-white/70 backdrop-blur">
+        <div className="mx-auto flex max-w-[1280px] flex-col gap-2 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <span>Fresher jobs and internships across India, collected daily from employers’ public job boards. Always apply on the original posting.</span>
+          <span className="flex gap-4">
+            <Link to="/about" className="hover:text-slate-900">Methodology</Link>
+            <a href="/api/v1/openapi.json" className="hover:text-slate-900">Public API</a>
+          </span>
         </div>
       </footer>
     </div>

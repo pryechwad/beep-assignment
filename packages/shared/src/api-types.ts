@@ -21,7 +21,7 @@ export interface SourceRef {
 export interface JobListItem {
   id: string;
   title: string;
-  company: { id: string; name: string; slug: string };
+  company: { id: string; name: string; slug: string; website: string | null };
   locationType: LocationType;
   primaryCity: string | null;
   primaryState: string | null;
@@ -185,5 +185,7 @@ export interface LiveActivity {
   /** Raw India records currently listed at sources, vs unique jobs after de-duplication. */
   dedup: { rawRecords: number; uniqueJobs: number; merged: number; flaggedForReview: number };
   ai: { total: number; llmTagged: number; pending: number; taggedLastHour: number };
-  feed: { id: string; jobId: string; title: string; company: string; city: string | null; role: RoleCategory; method: string; model: string | null; confidence: string; at: string }[];
+  feed: { id: string; jobId: string; title: string; company: string; companyWebsite: string | null; city: string | null; role: RoleCategory; method: string; model: string | null; confidence: string; at: string }[];
+  /** Per-source results of the latest collection run (what the scout scanned). */
+  scans: { source: string; company: string | null; companyWebsite: string | null; platform: string; status: string; fetched: number; india: number; newJobs: number; finishedAt: string | null }[];
 }

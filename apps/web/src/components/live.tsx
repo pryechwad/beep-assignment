@@ -8,7 +8,10 @@ import { HUES, type Hue } from '@/lib/colors';
 import { cn, fmtDateTime, fmtNumber, fmtRelative } from '@/lib/format';
 import { RoleBadge } from './job-card';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/overlay';
+import { GradientTile, type Tone } from './showcase';
 import { CompanyMark, HueBadge, IconTile, Skeleton } from './ui/primitives';
+
+const HUE_TONE: Record<Hue, Tone> = { blue: 'blue', violet: 'violet', teal: 'cyan', rose: 'rose', orange: 'orange', amber: 'amber', green: 'emerald', slate: 'indigo' };
 
 /** Live pipeline state. Polled (never cached server-side), so it shows up in the browser's Network tab. */
 export function useLiveActivity(intervalMs = 10_000) {
@@ -100,9 +103,9 @@ export function PipelineSteps() {
   return (
     <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       {steps.map((s, i) => (
-        <li key={s.title} className="relative rounded-xl border border-line bg-surface p-4 shadow-card">
+        <li key={s.title} className="group relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-5 shadow-lg shadow-slate-900/[0.04] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
           <div className="flex items-center justify-between">
-            <IconTile hue={s.hue}>{s.icon}</IconTile>
+            <GradientTile tone={HUE_TONE[s.hue]} size="sm" className="transition-transform duration-300 group-hover:scale-110">{s.icon}</GradientTile>
             <span className="text-2xs font-semibold text-faint">STEP {i + 1}</span>
           </div>
           <p className="mt-3 text-sm font-semibold text-ink">{s.title}</p>

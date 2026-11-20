@@ -19,6 +19,8 @@ export interface JobSearchParams {
   postedWithinDays?: number;
   sort?: 'newest' | 'relevance' | 'company' | 'title';
   page?: number;
+  /** Results per page (featured sections fetch more, then curate). */
+  pageSize?: number;
 }
 
 const LIST_KEYS = ['skill', 'role', 'city', 'state', 'employmentType', 'experience', 'workMode', 'source'] as const;

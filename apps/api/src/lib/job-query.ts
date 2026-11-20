@@ -80,7 +80,7 @@ export async function buildJobWhere(db: PrismaClient, q: JobQuery): Promise<{ wh
 }
 
 export const jobListInclude = {
-  company: { select: { id: true, name: true, slug: true } },
+  company: { select: { id: true, name: true, slug: true, website: true } },
   locations: { select: { city: true }, orderBy: { position: 'asc' } },
   skills: { include: { skill: { select: { name: true } } }, orderBy: [{ origin: 'desc' }, { rank: 'asc' }], take: 6 },
   rawJobs: { select: { sourceId: true, postingUrl: true, source: { select: { adapterType: true } } }, orderBy: { firstSeenAt: 'asc' }, take: 1 },

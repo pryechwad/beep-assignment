@@ -23,14 +23,21 @@ export function liveRouter(db: PrismaClient, redis: Redis, queues: Record<QueueN
       db.jobClassification.findMany({
         where: { isCurrent: true, method: { in: ['HYBRID', 'LLM'] } },
         orderBy: { createdAt: 'desc' },
-        take: 12,
-        select: { id: true, jobId: true, roleCategory: true, city: true, method: true, model: true, confidenceLevel: true, createdAt: true, job: { select: { title: true, primaryCity: true, company: { select: { name: true } } } } },
+        take: 24,
+        select: { id: true, jobId: true, roleCategory: true, city: true, method: true, model: true, confidenceLevel: true, createdAt: true, job: { select: { title: true, primaryCity: true, company: { select: { name: true, website: true } } } } },
       }),
       Promise.all([QUEUES.discovery, QUEUES.normalize, QUEUES.classify].map((q) => queues[q].getJobCounts('waiting', 'prioritized', 'active', 'delayed'))),
       db.rawJob.count({ where: { removedAt: null } }),
       db.jobDuplicate.count({ where: { decision: 'MERGED' } }),
       db.jobDuplicate.count({ where: { reviewStatus: 'PENDING' } }),
     ]);
+    const tasks = lastRun
+      ? await db.scrapeTask.findMany({
+          where: { runId: lastRun.id },
+          orderBy: [{ finishedAt: { sort: 'desc', nulls: 'first' } }],
+          select: { status: true, jobsFetched: true, jobsFiltered: true, jobsNew: true, finishedAt: true, source: { select: { id: true, adapterType: true, company: { select: { name: true, website: true } } } } },
+        })
+      : [];
     const workers = heartbeats.filter((h) => h.role === 'worker');
     const scheduler = heartbeats.find((h) => h.role === 'scheduler');
     const schedules = (scheduler?.details as { schedules?: { id: string; next: string | null }[] } | undefined)?.schedules ?? [];
@@ -52,7 +59,8 @@ export function liveRouter(db: PrismaClient, redis: Redis, queues: Record<QueueN
       dedup: { rawRecords, uniqueJobs: total, merged, flaggedForReview: flagged },
       queues: { discovery: depth(d), normalize: depth(n), classify: depth(c), active: (d.active ?? 0) + (n.active ?? 0) + (c.active ?? 0) },
       ai: { total, llmTagged, pending, taggedLastHour },
-      feed: feed.map((f) => ({ id: f.id, jobId: f.jobId, title: f.job.title, company: f.job.company.name, city: f.city ?? f.job.primaryCity, role: f.roleCategory, method: f.method, model: f.model, confidence: f.confidenceLevel, at: f.createdAt.toISOString() })),
+      scans: tasks.map((t) => ({ source: t.source.id, company: t.source.company?.name ?? null, companyWebsite: t.source.company?.website ?? null, platform: t.source.adapterType, status: t.status, fetched: t.jobsFetched, india: t.jobsFetched - t.jobsFiltered, newJobs: t.jobsNew, finishedAt: t.finishedAt?.toISOString() ?? null })),
+      feed: feed.map((f) => ({ id: f.id, jobId: f.jobId, title: f.job.title, company: f.job.company.name, companyWebsite: f.job.company.website, city: f.city ?? f.job.primaryCity, role: f.roleCategory, method: f.method, model: f.model, confidence: f.confidenceLevel, at: f.createdAt.toISOString() })),
     };
     res.setHeader('Cache-Control', 'no-store');
     res.json(body);

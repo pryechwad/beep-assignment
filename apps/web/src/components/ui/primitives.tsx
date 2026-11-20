@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Search, X } from 'lucide-react';
-import { forwardRef, type HTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useState, type HTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import { companyHue, HUES, type Hue } from '@/lib/colors';
 import { cn, monogram } from '@/lib/format';
 
@@ -95,23 +95,48 @@ export const Skeleton = ({ className }: { className?: string }) => (
   />
 );
 
-/** Company identity: coloured monogram tile (stable colour per company). We never show logos we haven't verified. */
-export function CompanyMark({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
-  const s = { sm: 'h-6 w-6 text-[0.625rem] rounded-[5px]', md: 'h-9 w-9 text-xs rounded-lg', lg: 'h-12 w-12 text-base rounded-xl' }[size];
+/** Host of a company website, for its logo lookup. */
+function hostOf(website: string | null | undefined): string | null {
+  if (!website) return null;
+  try {
+    return new URL(website).hostname.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Company identity: the company's own logo (its website icon) on a white tile;
+ * falls back to a monogram when no website is known or the icon fails to load.
+ */
+export function CompanyMark({ name, website, size = 'md' }: { name: string; website?: string | null; size?: 'sm' | 'md' | 'lg' }) {
+  const [failed, setFailed] = useState(false);
+  const host = hostOf(website);
+  const s = { sm: 'size-7 rounded-lg text-[0.625rem]', md: 'size-10 rounded-xl text-xs', lg: 'size-14 rounded-2xl text-base' }[size];
+  const img = { sm: 'size-4', md: 'size-6', lg: 'size-9' }[size];
+  if (host && !failed) {
+    return (
+      <span className={cn('inline-flex shrink-0 items-center justify-center bg-white ring-1 ring-inset ring-slate-200', s)}>
+        <img src={`/api/v1/logo?domain=${encodeURIComponent(host)}`} alt="" loading="lazy" className={cn('object-contain', img)} onError={() => setFailed(true)} onLoad={(e) => {
+          // Unknown domains get a tiny blank placeholder (not an error) — treat that as "no logo".
+          if (e.currentTarget.naturalWidth < 32) setFailed(true);
+        }} />
+      </span>
+    );
+  }
   const h = HUES[companyHue(name)];
   return (
-    <span aria-hidden className={cn('inline-flex shrink-0 items-center justify-center font-bold tracking-tight', s)} style={{ background: h.soft, color: h.ink, boxShadow: `inset 0 0 0 1px ${h.ring}` }}>
+    <span aria-hidden className={cn('inline-flex shrink-0 items-center justify-center font-semibold tracking-tight ring-1 ring-inset ring-slate-200', s)} style={{ background: h.soft, color: h.ink }}>
       {monogram(name)}
     </span>
   );
 }
 
-/** Coloured pill badge; `dot` adds a solid colour dot before the label. */
+/** Neutral pill with an optional coloured dot — colour marks the category, the pill stays calm. */
 export function HueBadge({ hue, children, dot, className }: { hue: Hue; children: ReactNode; dot?: boolean; className?: string }) {
-  const h = HUES[hue];
   return (
-    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-2xs font-medium leading-5', className)} style={{ background: h.soft, color: h.ink }}>
-      {dot && <span className="h-1.5 w-1.5 rounded-full" style={{ background: h.solid }} aria-hidden />}
+    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-2 text-2xs font-medium leading-5 text-slate-700 ring-1 ring-inset ring-slate-200', className)}>
+      {dot && <span className="size-1.5 rounded-full" style={{ background: HUES[hue].solid }} aria-hidden />}
       {children}
     </span>
   );

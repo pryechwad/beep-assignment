@@ -7,6 +7,7 @@ const base = process.argv[3] ?? 'http://localhost:5180';
 const pages = [
   ['home', '/'],
   ['insights', '/insights'],
+  ['scout', '/scout'],
   ['jobs', '/jobs'],
   ['jobs-filtered', '/jobs?internship=true&city=Bengaluru'],
   ['companies', '/companies'],

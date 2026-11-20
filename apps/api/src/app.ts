@@ -13,6 +13,7 @@ import { openApiDocument } from './openapi';
 import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
 import { liveRouter } from './routes/live';
+import { logoRouter } from './routes/logo';
 import { publicRouter } from './routes/public';
 
 export interface AppDeps {
@@ -28,7 +29,8 @@ export interface AppDeps {
 
 export function createApp(deps: AppDeps): Express {
   const app = express();
-  app.set('trust proxy', 1);
+  // Number of reverse proxies in front of the API (e.g. Caddy + nginx = 2), so rate limits see the real client IP.
+  app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 1));
   app.disable('x-powered-by');
 
   app.use(
@@ -71,6 +73,7 @@ export function createApp(deps: AppDeps): Express {
   v1.use('/auth', authRouter(deps.db, deps.jwtSecret, deps.production));
   v1.use('/admin', adminRouter(deps.db, deps.redis, deps.queues, deps.jwtSecret));
   v1.use(liveRouter(deps.db, deps.redis, deps.queues));
+  v1.use(logoRouter());
   v1.use(publicRouter(deps.db, deps.redis, { cacheTtlMs: deps.cacheTtlMs }));
   app.use('/api/v1', v1);
 

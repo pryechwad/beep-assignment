@@ -12,6 +12,7 @@ import './styles/index.css';
 
 const Home = lazy(() => import('./pages/home'));
 const Insights = lazy(() => import('./pages/insights'));
+const Scout = lazy(() => import('./pages/scout'));
 const Jobs = lazy(() => import('./pages/jobs'));
 const JobDetail = lazy(() => import('./pages/job-detail'));
 const Companies = lazy(() => import('./pages/companies'));
@@ -60,6 +61,7 @@ createRoot(document.getElementById('root')!).render(
             <Route element={<PublicLayout />}>
               <Route index element={page(<Home />)} />
               <Route path="insights" element={page(<Insights />)} />
+              <Route path="scout" element={page(<Scout />)} />
               <Route path="jobs" element={page(<Jobs />)} />
               <Route path="jobs/:id" element={page(<JobDetail />)} />
               <Route path="companies" element={page(<Companies />)} />

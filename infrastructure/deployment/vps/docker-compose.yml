@@ -1,0 +1,88 @@
+# Single-VPS deployment behind an existing Caddy (TLS) on the external network `edge`.
+#   cd /opt/beep-job-intelligence && docker compose -f infrastructure/deployment/vps/docker-compose.yml --env-file .env.production up -d --build
+name: beep
+x-backend: &backend
+  build:
+    context: ../../..
+    dockerfile: infrastructure/docker/Dockerfile
+  image: beep-backend:latest
+  restart: unless-stopped
+  env_file: ../../../.env.production
+  environment:
+    NODE_ENV: production
+    DATABASE_URL: postgresql://beep:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/beep?connection_limit=10&connect_timeout=20&pool_timeout=20
+    REDIS_URL: redis://redis:6379
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks: [internal]
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: beep
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: beep
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=60"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beep -d beep"]
+      interval: 5s
+      retries: 20
+    networks: [internal]
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+    networks: [internal]
+
+  api:
+    <<: *backend
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://beep:${POSTGRES_PASSWORD}@postgres:5432/beep?connection_limit=10&connect_timeout=20&pool_timeout=20
+      REDIS_URL: redis://redis:6379
+      # Caddy → nginx → api
+      TRUST_PROXY_HOPS: "2"
+
+  worker:
+    <<: *backend
+    command: ["node", "--enable-source-maps", "apps/worker/dist/worker.js"]
+    healthcheck: { disable: true }
+    stop_grace_period: 40s
+
+  scheduler:
+    <<: *backend
+    command: ["node", "--enable-source-maps", "apps/worker/dist/scheduler.js"]
+    healthcheck: { disable: true }
+
+  # Static SPA + same-origin /api proxy (so the session cookie stays first-party).
+  web:
+    image: nginx:1.27-alpine
+    container_name: beep-web
+    restart: unless-stopped
+    volumes:
+      - ../../../web-dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on: [api]
+    networks: [internal, edge]
+
+volumes:
+  pgdata: {}
+  redisdata: {}
+
+networks:
+  internal: {}
+  edge:
+    external: true
+    name: ai-creator-ecosystem_default

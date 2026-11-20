@@ -7,12 +7,12 @@ import { Badge, CompanyMark, HueBadge } from './ui/primitives';
 import { Tooltip } from './ui/overlay';
 
 export function EligibilityBadge({ job }: { job: Pick<JobListItem, 'isFresherEligible' | 'experienceLevel'> }) {
-  if (job.experienceLevel === 'INTERNSHIP') return <HueBadge hue="violet" dot>Internship</HueBadge>;
+  if (job.experienceLevel === 'INTERNSHIP') return <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 text-2xs font-semibold leading-5 text-indigo-700 ring-1 ring-inset ring-indigo-100">Internship</span>;
   if (job.isFresherEligible)
     return (
-      <HueBadge hue="green">
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 text-2xs font-semibold leading-5 text-emerald-700 ring-1 ring-inset ring-emerald-100">
         <Sparkles className="h-3 w-3" aria-hidden /> Fresher-friendly
-      </HueBadge>
+      </span>
     );
   if (job.isFresherEligible === null) return <Badge tone="outline">Not yet classified</Badge>;
   return null;
@@ -32,9 +32,9 @@ export function JobCard({ job, compact = false }: { job: JobListItem; compact?: 
   const mode = modeLabel(job.workMode);
   const exp = job.experienceLevel && job.experienceLevel !== 'INTERNSHIP' && job.experienceLevel !== 'UNKNOWN' ? expLabel(job.experienceLevel) : null;
   return (
-    <article className={cn('group relative flex gap-3.5 px-4 transition-colors hover:bg-[#FAFBFF]', compact ? 'py-3' : 'py-4')}>
+    <article className={cn('group relative flex gap-3.5 px-4 transition-colors hover:bg-slate-50/70', compact ? 'py-3' : 'py-4')}>
       <span className="absolute inset-y-0 left-0 w-[3px] origin-top scale-y-0 bg-accent transition-transform duration-200 group-hover:scale-y-100" aria-hidden />
-      <CompanyMark name={job.company.name} />
+      <CompanyMark name={job.company.name} website={job.company.website} />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -58,7 +58,7 @@ export function JobCard({ job, compact = false }: { job: JobListItem; compact?: 
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-ink-2">
           <span className="mr-1 inline-flex items-center gap-1 font-medium">
-            <MapPin className="h-3.5 w-3.5" aria-hidden style={{ color: '#E0457B' }} />
+            <MapPin className="h-3.5 w-3.5 text-slate-400" aria-hidden />
             {locationLabel(job)}
           </span>
           <RoleBadge role={job.roleCategory} />

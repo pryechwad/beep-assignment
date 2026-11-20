@@ -1,6 +1,6 @@
 # Deployment
 
-> **Status:** deployment configuration is written but **nothing has been deployed** — the scheduler-driven daily automation has been verified only on the local stack (scheduler registered all four cron schedules; worker processed a full run). Deploying requires accounts/credentials for the chosen hosts.
+> **Status (2026-11-21):** deployed on a VPS at https://beep.62-72-56-109.sslip.io using `infrastructure/deployment/vps/docker-compose.yml` (Postgres, Redis, API, worker, scheduler, nginx) behind the host’s existing Caddy for HTTPS. The scheduler registered the daily 06:30 IST pipeline; health, admin sign-in and all public pages were verified end to end against the live URL.
 
 ## Topology
 

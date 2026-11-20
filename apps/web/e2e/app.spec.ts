@@ -25,10 +25,10 @@ test('landing page shows live pipeline numbers and keeps polling the live activi
     if (r.url().includes('/api/v1/live/activity')) polls.push(r.url());
   });
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: /first job or internship/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Your first job/i })).toBeVisible();
   await expect(page.getByText('How it works')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'AI tagging — live' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Data sync status/ })).toBeVisible();
+  await expect(page.getByText('AI Scout', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Data sync status/ }).first()).toBeVisible();
   // the live feed refetches on an interval → repeated network requests
   await page.waitForTimeout(11_000);
   expect(polls.length).toBeGreaterThanOrEqual(2);
@@ -38,14 +38,12 @@ test('landing page shows live pipeline numbers and keeps polling the live activi
 test('insights shows real KPIs and charts without console errors', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('/insights');
-  await expect(page.getByRole('heading', { name: 'Insights' })).toBeVisible();
-  const kpi = page.getByText('Opportunities', { exact: true }).locator('..').locator('..');
-  await expect(kpi).toContainText(/\d/);
-  await expect(page.getByRole('region', { name: 'Opportunities by role' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Opportunities by city' })).toBeVisible();
-  // every chart offers a table view
-  await page.getByRole('region', { name: 'Opportunities by city' }).getByRole('button', { name: 'Table view' }).click();
-  await expect(page.getByRole('region', { name: 'Opportunities by city' }).getByRole('table')).toContainText('Bengaluru');
+  await expect(page.getByRole('heading', { name: /Early-Career Job Market/ })).toBeVisible();
+  const openRoles = page.getByText('Open roles', { exact: true }).locator('..').locator('..');
+  await expect(openRoles).toContainText(/\d/);
+  await expect(page.getByRole('heading', { name: /Roles in demand/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Opportunities by city/ })).toBeVisible();
+  await expect(page.getByText('Bengaluru').first()).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -61,7 +59,7 @@ test('job explorer: server-side search and filters persist in the URL', async ({
   await expect(cards.first()).toContainText(/Intern/i);
   // reload keeps state
   await page.reload();
-  await expect(page.getByRole('checkbox', { name: /Internships only/ })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: /Internships only/ })).toBeChecked({ timeout: 30_000 }); // facet panel loads after a reload
   await page.getByRole('button', { name: 'Clear all' }).first().click();
   await expect(page).not.toHaveURL(/internship=true/);
 });

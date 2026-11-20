@@ -11,4 +11,6 @@ export default defineConfig({
   sourcemap: true,
   noExternal: [/^@beep\//],
   external: ['@prisma/client', '.prisma/client'],
+  // Bundled CommonJS dependencies (e.g. pino internals) call require(); give the ESM bundle a real one.
+  banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
 });

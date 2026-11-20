@@ -25,7 +25,7 @@ export default function Companies() {
           {companies.data.items.map((c) => (
             <Card key={c.id} className="flex min-w-0 flex-col rounded-xl p-4 transition-all hover:-translate-y-0.5 hover:border-line-strong hover:shadow-pop">
               <div className="flex min-w-0 items-start gap-3">
-                <CompanyMark name={c.name} size="lg" />
+                <CompanyMark name={c.name} website={c.website} size="lg" />
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-[0.9375rem] font-bold text-ink">{c.name}</h2>
                   <p className="truncate text-xs text-muted">{c.cities.length ? c.cities.join(' · ') : 'Location varies'}</p>

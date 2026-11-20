@@ -6,17 +6,18 @@
 
 | | Link |
 |---|---|
-| Web app | _add after deployment (Vercel)_ |
-| API health | _add after deployment_ — `/health` |
-| Public API reference | _add after deployment_ — `/api/v1/openapi.json` |
+| Web app | **https://beep.62-72-56-109.sslip.io** |
+| AI Scout (live scanning & tagging) | https://beep.62-72-56-109.sslip.io/scout |
+| API health | https://beep.62-72-56-109.sslip.io/health |
+| Public API reference | https://beep.62-72-56-109.sslip.io/api/v1/openapi.json |
 
-Running locally: web `http://localhost:5181` (production build) or `:5180` (dev), API `http://localhost:4100`.
+Deployed on a VPS with Docker Compose (Postgres + Redis + API + worker + scheduler + nginx) behind Caddy (HTTPS). The scheduler runs the full collection daily at 06:30 IST with no manual step. Running locally: web `http://localhost:5181`, API `http://localhost:4100`.
 
 ## What it does
 
 | Assignment requirement | How it is met |
 |---|---|
-| 200+ real fresher / internship posts in India from public sources | **1,010** unique India postings from **40** employer boards via the official public APIs of Greenhouse, Lever and Ashby. robots.txt and rate limits respected; nothing generated or padded. |
+| 200+ real fresher / internship posts in India from public sources | **1,010** unique, real India postings from **40** employer boards via the official public APIs of Greenhouse, Lever and Ashby (robots.txt and rate limits respected; nothing generated or padded). **Honest limitation:** of these, **26 are confirmed fresher-eligible** (19 internships, 7 fresher / 0–1 yr), 56 ask for 1–2 years, 54 don't state experience and the rest are experienced roles — see below. |
 | Removes duplicates | Three layers: same source id / canonical URL → same company + title + city → fuzzy (and optional semantic) similarity. Copies on the same board are never auto-merged; near-identical ones go to human review. |
 | LLM tags each post by role and city | Every post is sent to an LLM (early-career posts first) with a versioned prompt and strict JSON output. City comes from the structured source location; the LLM may only fill it if the city literally appears in the post. Every quote the model returns is checked against the original text. |
 | Searchable page | Server-side full-text search (Postgres `tsvector`) plus filters for role, city, state, experience, employment type, work mode, source, fresher-only, internships and date posted. Filters live in the URL. |
@@ -58,6 +59,9 @@ Monorepo (npm workspaces): `apps/web` (React 18, Vite, Tailwind, Radix, TanStack
 | A Prisma migration silently dropped the full-text search column | Column declared in the schema; a test asserts it exists |
 | BullMQ rejected job ids containing `:` | Id format changed; covered by the live pipeline run |
 | API returned 500s under load (Docker on 8 GB RAM) | 30 s server cache for aggregates, single-query daily stats, pool timeouts |
+| Production bundle crashed on the server: `Dynamic require of "events" is not supported` | Bundled CommonJS deps need `require` inside an ESM bundle — added a `createRequire` banner to the tsup builds and now run the bundle locally before deploying |
+| nginx kept a stale API address after containers were recreated (502) | nginx re-resolves the API through Docker DNS on every request |
+| SmartRecruiters would have added hundreds of India roles | Its robots.txt disallows all crawlers, so it was deliberately not used |
 
 ## Run locally
 
@@ -99,6 +103,26 @@ npm run typecheck               # TypeScript strict, all workspaces
 ## Docs
 
 [Architecture](docs/architecture.md) · [Data sources](docs/data-sources.md) · [AI & prompts](docs/ai-prompts.md) · [Evaluation](docs/evaluation-report.md) · [Cost](docs/cost-analysis.md) · [Deployment](docs/deployment.md)
+
+## Why there are fewer than 200 fresher posts (and why that number is real)
+
+Experience breakdown of the 1,010 active India postings (2026-11-21):
+
+| Level | Postings |
+|---|---|
+| Internship | 19 |
+| Fresher / 0–1 year | 7 |
+| 1–2 years | 56 |
+| Not stated | 54 |
+| Experienced (2+ years or senior title) | 875 |
+
+What was checked before accepting this number:
+- ~270 company boards were probed on Greenhouse, Lever and Ashby; India-based fresher/intern roles are rare on all three.
+- **SmartRecruiters** would have added hundreds of Bosch India roles, but its `robots.txt` disallows all crawlers except LinkedIn (`User-agent: * Disallow: /`), so it was **not** used. Its "Entry Level" labels were also unreliable (e.g. "Sr. Territory Manager").
+- Workday career sites expose only an internal JSON endpoint, not an official public API, so they were left out.
+- Fresher-only portals (Naukri, Internshala, LinkedIn) prohibit automated collection or require login.
+
+So the tool reports the true count instead of loosening the definition or using disallowed sources. Adding a compliant source is one adapter (see `docs/data-sources.md`). The rules count "experience not stated" as not-fresher; as the LLM tags every post, some of the 54 "not stated" may move into the fresher bucket.
 
 ## Known limitations
 
