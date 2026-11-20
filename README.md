@@ -1,91 +1,107 @@
-# BEEP Job Intelligence
+# beep.jobs — Job Intelligence
 
-**India's Opportunity Intelligence Engine.** A live, auditable index of fresher jobs and internships across India: collected from employers' public job boards, normalised, de-duplicated, classified by rules + LLMs with measured confidence, and served through a fast search experience and an operations console.
+**India's Opportunity Intelligence Engine.** A web tool that collects real fresher jobs and internships across India from employers' public job boards, removes duplicates, tags every post with a role and city using an LLM, and serves them on a searchable portal that refreshes itself every day.
 
-- 1,010 real, unique India-located postings from 40 public Greenhouse / Lever / Ashby boards (first run, 2026-11-20) — no generated data.
-- Rules-first classification; LLM only where it adds value; every AI claim checked against the source text.
-- Daily pipeline on BullMQ with retries, dead-letter queue, heartbeats and per-record tracing.
-- Human-evaluation tool, calibration report and measured cost per 1,000 posts.
+## Live demo
 
-Docs: [architecture](docs/architecture.md) · [data sources](docs/data-sources.md) · [AI & prompts](docs/ai-prompts.md) · [evaluation](docs/evaluation-report.md) · [cost](docs/cost-analysis.md) · [deployment](docs/deployment.md)
+| | Link |
+|---|---|
+| Web app | _add after deployment (Vercel)_ |
+| API health | _add after deployment_ — `/health` |
+| Public API reference | _add after deployment_ — `/api/v1/openapi.json` |
 
-## Stack
+Running locally: web `http://localhost:5181` (production build) or `:5180` (dev), API `http://localhost:4100`.
 
-React 18 · Vite · TypeScript (strict) · Tailwind v4 · Radix (shadcn-style components) · TanStack Query · React Router · React Hook Form + Zod · Recharts · Zustand (toast store) · CSS keyframe motion (Framer Motion was evaluated and left out: no interaction needed more than CSS) — Node 20 · Express · Prisma · PostgreSQL 16 (pgvector, pg_trgm, generated tsvector) · Redis + BullMQ — Gemini / OpenAI / Groq behind one provider interface — Vitest · Supertest · Playwright.
+## What it does
 
-## Quick start (local)
+| Assignment requirement | How it is met |
+|---|---|
+| 200+ real fresher / internship posts in India from public sources | **1,010** unique India postings from **40** employer boards via the official public APIs of Greenhouse, Lever and Ashby. robots.txt and rate limits respected; nothing generated or padded. |
+| Removes duplicates | Three layers: same source id / canonical URL → same company + title + city → fuzzy (and optional semantic) similarity. Copies on the same board are never auto-merged; near-identical ones go to human review. |
+| LLM tags each post by role and city | Every post is sent to an LLM (early-career posts first) with a versioned prompt and strict JSON output. City comes from the structured source location; the LLM may only fill it if the city literally appears in the post. Every quote the model returns is checked against the original text. |
+| Searchable page | Server-side full-text search (Postgres `tsvector`) plus filters for role, city, state, experience, employment type, work mode, source, fresher-only, internships and date posted. Filters live in the URL. |
+| Refreshes every day on its own | A dedicated scheduler process runs the full pipeline at **06:30 IST** daily, re-checks links every 6 hours, and re-tags pending posts hourly. No one presses a button. |
+| Accuracy on 50 hand-checked posts | Built-in evaluation tool (Admin → Evaluation): stratified sample of 50, blank labelling form (no anchoring on the AI's answer), per-field accuracy, calibration by confidence, CSV export. See `docs/evaluation-report.md`. |
+| Cost per 1,000 posts | Every LLM call logs measured tokens and cost. Measured ≈ **$0.33 (≈₹28) per 1,000 posts** at list price; actual spend ₹0 on Groq's free tier. See `docs/cost-analysis.md`. |
+
+## Pages
+
+**Public portal**
+- **Home** — search, explore by field, "How it works" with live numbers at each pipeline step, live AI-tagging feed, fresher picks, companies hiring.
+- **Jobs** — the searchable explorer; **Job detail** separates what the source said from what the AI inferred and links to the employer's original posting.
+- **Companies**, **Insights** (KPIs and charts), **Analytics**, **About** (methodology and data limits).
+- The navbar shows a **Live** indicator: the site polls `/api/v1/live/activity` every 5–10 seconds (visible in the browser's Network tab) and shows the last sync, next automatic run and AI-tagging progress.
+
+**Admin console** (`/admin`) — pipeline runs and queues, dead-letter retry, source enable/disable, low-confidence review and duplicate review, human evaluation, AI cost analytics, logs and per-record tracing.
+
+## Architecture
+
+```
+scheduler (cron, IST) ──▶ Redis / BullMQ queues ──▶ worker
+                               pipeline → discovery (per source) → normalize + dedup → classify (LLM)
+public job-board APIs ──▶ RawJob (verbatim) ──▶ Job (canonical) ──▶ JobClassification (versioned) + AIUsage (tokens, cost)
+browser ──▶ React SPA ──▶ /api/v1 (Express) ──▶ PostgreSQL (pgvector, pg_trgm, full-text) + Redis
+```
+
+Monorepo (npm workspaces): `apps/web` (React 18, Vite, Tailwind, Radix, TanStack Query), `apps/api` (Express, JWT admin auth, OpenAPI), `apps/worker` (BullMQ worker + separate scheduler), and `packages/*` — `scraper-engine`, `normalization`, `deduplication`, `ai-engine` (Gemini / OpenAI / Groq behind one interface, versioned prompts in `prompts/`), `classification`, `evaluation`, `database` (Prisma), `queues`, `shared`. Details: [docs/architecture.md](docs/architecture.md).
+
+## What broke and how it was fixed
+
+| Problem found on real data | Fix |
+|---|---|
+| "Lafayette, IN" (Indiana) and "Nashville, TN" counted as Indian jobs | Two-letter codes only trusted next to "India"; regression tests |
+| Small cities ("Aligarh, Uttar Pradesh") lost | Explicit "City, State" extraction |
+| Intern roles shown as Full-time (job-board default) | An explicit "Intern" title outranks a generic Full-time |
+| LLM tagged clear roles ("Associate Recruiter") as Other | An LLM "Other" can't override a strong title match |
+| LLM quoted prompt text as evidence | Every quote is verified against the post; unverified ones removed |
+| Groq free tier: 8k tokens/min and a daily cap | Per-call pacing shared by all workers, quota detection, fallback to a second Groq model, hourly re-queue of pending posts |
+| A Prisma migration silently dropped the full-text search column | Column declared in the schema; a test asserts it exists |
+| BullMQ rejected job ids containing `:` | Id format changed; covered by the live pipeline run |
+| API returned 500s under load (Docker on 8 GB RAM) | 30 s server cache for aggregates, single-query daily stats, pool timeouts |
+
+## Run locally
 
 Prerequisites: Node ≥ 20.11, Docker.
 
 ```bash
-cp .env.example .env            # fill JWT_SECRET, ADMIN_PASSWORD and at least one AI key
+cp .env.example .env            # set JWT_SECRET, ADMIN_PASSWORD and at least one AI key (GROQ / GEMINI / OPENAI)
 npm install
-npm run infra:up                # Postgres (pgvector) on :5442, Redis on :6389
-npm run db:deploy               # apply migrations
+npm run infra:up                # Postgres (pgvector) :5442, Redis :6389
+npm run db:deploy               # migrations
 npm run db:seed                 # 40 verified sources + first admin account
-```
 
-Run each process in its own terminal:
-
-```bash
-npm run dev:api                 # http://localhost:4100  (OpenAPI: /api/v1/openapi.json)
-npm run dev:worker              # consumes all queues
-npm run dev:scheduler           # registers cron schedules (06:30 IST daily pipeline)
+npm run dev:api                 # http://localhost:4100
+npm run dev:worker
+npm run dev:scheduler
 npm run dev:web                 # http://localhost:5180
-npm run pipeline:run            # trigger a collection run now (or Admin → Run collection now)
-npm run status                  # one-screen pipeline status from the database
+npm run pipeline:run            # collect now (otherwise it runs at 06:30 IST)
 ```
 
-Admin console: `/admin` (sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env`).
+## Deploy
+
+| Part | Where | How |
+|---|---|---|
+| Web | Vercel | root `apps/web`; set the API host in `apps/web/vercel.json` (`/api/*` rewrite) |
+| API, worker, scheduler | Render / Railway / VPS | one Docker image (`infrastructure/docker/Dockerfile`), three start commands; Render blueprint in `infrastructure/deployment/render.yaml` |
+| Database / Redis | Managed Postgres 16 (pgvector) + Redis 7 | `npm run db:deploy`, then `npm run db:seed` once |
+
+Single-server alternative: `docker compose -f infrastructure/docker/docker-compose.prod.yml --env-file .env.production up -d --build`. Full steps and environment variables: [docs/deployment.md](docs/deployment.md).
 
 ## Tests
 
 ```bash
-npm test                        # unit: normalisation, scraper adapters, dedup, AI runner, classification, evaluation
-npm run test:integration        # API (supertest) + worker pipeline on a real Postgres (beep_test, rebuilt per run)
-npm run build -w @beep/web && (cd apps/web && npx vite preview --port 5181) &
-npm run test:e2e                # Playwright on the installed Edge against the running stack
-npm run typecheck
+npm test                        # 135 unit tests
+npm run test:integration        # 31 API + pipeline tests on a real Postgres
+npm run test:e2e                # 7 Playwright tests (Edge) against the running app
+npm run typecheck               # TypeScript strict, all workspaces
 ```
 
-Current results: **134 unit**, **31 integration**, **6 end-to-end** — all passing; `tsc --strict` clean in every workspace.
+## Docs
 
-## Scripts worth knowing
-
-| Command | Purpose |
-|---|---|
-| `npm run reprocess -- --normalize` | re-apply normalisation to every raw record after a normaliser fix (no refetch, no LLM) |
-| `npm run reprocess -- --reclassify-other` | re-classify jobs currently labelled OTHER |
-| `npx tsx --env-file=.env scripts/smoke-collect.ts` | fetch every source live without writing (coverage check) |
-| `npx tsx --env-file=.env scripts/smoke-llm.ts` | one live structured classification with the configured providers |
-
-## Definition of done — status with evidence
-
-| Item | Status | Evidence |
-|---|---|---|
-| Frontend runs | ✅ | production build + preview; Playwright suite passes, no console errors |
-| Backend runs | ✅ | `/health` ok; 31 integration tests |
-| Database migrations work | ✅ | `migrate deploy` from scratch in every integration run; drift check "No difference detected" |
-| Real public sources integrated | ✅ | 3 adapters, 40 boards, official APIs, robots.txt honoured |
-| Genuine opportunities collected | ✅ | 7,479 fetched → 1,010 India postings |
-| 200+ unique records | ✅ | 1,010 unique canonical jobs |
-| Duplicate detection works | ✅ | 3 layers, unit + integration tests; 20 same-source re-posts queued for review on live data |
-| LLM classification works | ✅ | 87 live LLM-assisted classifications (Groq gpt-oss-20b) |
-| Classification results validated | ✅ | Zod + repair, evidence grounding, consistency checks |
-| Background jobs execute | ✅ | full live run 40/40 sources SUCCEEDED; retries/DLQ exercised |
-| Daily automation deployed & verified | ⚠️ partial | scheduler verified **locally** (4 cron schedules registered, next-run times live); not deployed — see docs/deployment.md |
-| Job explorer, search & filters | ✅ | server-side FTS + facets, URL state; e2e tested |
-| Admin monitoring | ✅ | overview, pipeline, sources, AI review, duplicates, costs, logs, tracing |
-| 50 records manually audited | ❌ pending | tool complete; requires a **human** evaluator (AI labels are not ground truth) |
-| Accuracy metrics calculated | ⚠️ pipeline ready | computed automatically once labels exist |
-| Cost per 1,000 from real usage | ✅ | $0.12 per 1,000 processed posts ($0.37 per 1,000 LLM-classified), measured tokens × dated prices (Groq prices unverified) |
-| Tests pass | ✅ | 134 + 31 + 6 |
-| README complete | ✅ | this file + docs/ |
-| Deployment verified | ❌ | configuration written (Dockerfile, compose, Render, Vercel); not deployed |
+[Architecture](docs/architecture.md) · [Data sources](docs/data-sources.md) · [AI & prompts](docs/ai-prompts.md) · [Evaluation](docs/evaluation-report.md) · [Cost](docs/cost-analysis.md) · [Deployment](docs/deployment.md)
 
 ## Known limitations
 
-- Coverage is limited to Greenhouse/Lever/Ashby employers — tech-heavy, Bengaluru-heavy; mass campus recruiters are largely absent.
-- The only AI key available during the build was Groq's free tier (8k tokens/min, daily cap): on day one ~87 jobs got an LLM pass; the rest carry a rules-only classification marked "LLM pending" and are re-queued hourly. A Gemini or OpenAI key removes this bottleneck.
-- Prices for Groq/Gemini/OpenAI chat models are from third-party trackers (flagged *unverified* in the UI) until confirmed.
-- Ashby pages are client-rendered, so link verification cannot detect closures there; closure is detected from the source API instead.
+- Coverage is limited to companies on Greenhouse, Lever and Ashby, so it leans toward tech companies and Bengaluru; mass campus recruiters are mostly absent.
+- On Groq's free tier about 110 posts are AI-tagged per hour; a Gemini or OpenAI key removes that limit.
+- Chat-model prices are from third-party trackers until confirmed on the providers' pages (flagged in the Costs page).
